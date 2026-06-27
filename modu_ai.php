@@ -4,23 +4,27 @@ header('Content-Type: application/json; charset=utf-8');
 $request_id = bin2hex(random_bytes(8));
 $request_start_time = microtime(true);
 
+// ===== 环境变量兼容函数（适配宝塔PHP-FPM） =====
+function env($k, $d = '') {
+    $v = $_SERVER[$k] ?? $_ENV[$k] ?? getenv($k) ?: false;
+    return $v === false || (is_string($v) && trim($v) === '') ? $d : trim($v);
+}
+
 // ===== 核心配置 =====
 // 跨域白名单，可改成自己网站
-$allow_origins = ['https://xxx', 'https://xxx '];
+$allow_origins = ['https://oak360.cn', 'https://www.oak360.cn'];
 // 可信代理IP段（CDN/反向代理，只有来自这些IP的请求头才可信）
 $trusted_proxies = []; 
 // 模型熔断配置：连续失败N次后熔断M秒
 $circuit_breaker_fail_count = 5;
 $circuit_breaker_break_seconds = 600;
-
 // 模型配置
 $deepseek_url = 'https://api.deepseek.com/chat/completions';
 $deepseek_model = 'deepseek-v4-flash';
-$deepseek_key = getenv('DEEPSEEK_KEY') ?: '';
+$deepseek_key = env('DEEPSEEK_KEY');
 $zhipu_url = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';   
 $zhipu_model = 'glm-4-flash';
-$zhipu_key = getenv('ZHIPU_KEY') ?: '';
-
+$zhipu_key = env('ZHIPU_KEY');
 // 额度配置
 $daily_limit_free = 50;
 $daily_limit_vip = 200;
@@ -34,10 +38,9 @@ $max_text_length = 2000;
 $explain_max_len = 80;
 $explain_prompt_version = 'v1';
 $explain_cache_ttl = 30 * 86400; // 缓存30天过期
-
-// 数据目录
-$data_dir = dirname(__DIR__) . '/modu_data';
-$log_dir = dirname(__DIR__) . '/modu_log';
+// 数据目录（与程序文件同级）
+$data_dir = __DIR__ . '/modu_data';
+$log_dir = __DIR__ . '/modu_log';
 $limit_file = $data_dir . '/ai_call_limit.json';
 $rate_minute_file = $data_dir . '/rate_minute.json';
 $rate_hour_file = $data_dir . '/rate_hour.json';
@@ -49,7 +52,6 @@ $explain_cache_file = $data_dir . '/explain_cache.json';
 $circuit_breaker_file = $data_dir . '/circuit_breaker.json';
 $error_log_file = $log_dir . '/error_' . date('Y-m-d') . '.log';
 $access_log_file = $log_dir . '/access_' . date('Y-m-d') . '.log';
-
 // 初始化目录与文件
 foreach ([$data_dir, $log_dir] as $dir) {
     if (!is_dir($dir)) mkdir($dir, 0700, true);
@@ -61,12 +63,19 @@ foreach ([$limit_file, $rate_minute_file, $rate_hour_file, $stats_file, $token_f
         file_put_contents($f, json_encode([], JSON_UNESCAPED_UNICODE));
     }
 }
+// 目录访问防护
+@file_put_contents("$data_dir/index.html", '');
+@file_put_contents("$data_dir/.htaccess", "deny from all\n");
+@file_put_contents("$log_dir/index.html", '');
+@file_put_contents("$log_dir/.htaccess", "deny from all\n");
 
-// ===== 跨域安全 =====
+// ===== 跨域安全（标准化） =====
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-if (in_array($origin, $allow_origins)) {
-    header('Access-Control-Allow-Origin: ' . $origin);
+if (in_array($origin, $allow_origins, true)) {
+    header("Access-Control-Allow-Origin: $origin");
+    header('Vary: Origin');
 }
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Vip-Token, X-Device-ID');
 header('Access-Control-Max-Age: 86400');
@@ -74,10 +83,9 @@ header('Access-Control-Max-Age: 86400');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
-
 // 预检请求
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
+    http_response_code(204);
     exit;
 }
 
@@ -91,7 +99,6 @@ function lockAndRead($file) {
     $data = json_decode($raw, true) ?: [];
     return [$fp, $data];
 }
-
 function writeAndUnlock($fp, $data) {
     ftruncate($fp, 0);
     rewind($fp);
@@ -100,13 +107,11 @@ function writeAndUnlock($fp, $data) {
     flock($fp, LOCK_UN);
     fclose($fp);
 }
-
 function writeErrorLog($msg) {
     global $error_log_file, $request_id;
     $line = '[' . date('Y-m-d H:i:s') . '] [req:' . $request_id . '] ' . $msg . PHP_EOL;
     file_put_contents($error_log_file, $line, FILE_APPEND);
 }
-
 function writeAccessLog($data) {
     global $access_log_file;
     $line = json_encode($data, JSON_UNESCAPED_UNICODE) . PHP_EOL;
@@ -117,7 +122,6 @@ function writeAccessLog($data) {
     }
     file_put_contents($access_log_file, $line, FILE_APPEND);
 }
-
 // 获取真实IP：仅信任配置的代理IP，防止X-Forwarded-For伪造
 function getRealIp() {
     global $trusted_proxies;
@@ -145,23 +149,21 @@ function getRealIp() {
     
     return $remote_addr;
 }
-
 // 设备指纹（仅作辅助，不作为核心身份依据）
 function getDeviceFingerprint() {
     $ua = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
     $lang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? 'unknown';
     return sha1($ua . '|' . $lang);
 }
-
 function getDeviceId() {
     if (isset($_COOKIE['modu_device_id']) && preg_match('/^[a-f0-9]{32}$/', $_COOKIE['modu_device_id'])) {
         return $_COOKIE['modu_device_id'];
     }
     $device_id = md5(uniqid(mt_rand(), true) . getDeviceFingerprint());
-    setcookie('modu_device_id', $device_id, time() + 365*86400, '/', '', isset($_SERVER['HTTPS']), true);
+    setcookie('modu_device_id', $device_id, time() + 31536000, '/', '',
+        isset($_SERVER['HTTPS']), true, ['samesite' => 'Lax']);
     return $device_id;
 }
-
 // 文本标准化：修复全角转半角Bug，支持变形绕过检测
 function normalizeText($text) {
     $text = mb_strtolower($text);
@@ -174,7 +176,6 @@ function normalizeText($text) {
     $text = preg_replace('/[\s\p{P}\p{Z}\p{S}_\-·・]/u', '', $text);
     return $text;
 }
-
 // 违规内容检测
 function isIllegalText($text) {
     $badWords = [
@@ -190,7 +191,6 @@ function isIllegalText($text) {
     }
     return false;
 }
-
 // AI精读返回结果校验
 function validateAiResponse($data) {
     if (!is_array($data)) return false;
@@ -204,7 +204,7 @@ function validateAiResponse($data) {
     if (!isset($data['question']) || !is_string($data['question']) || mb_strlen($data['question']) > 80) return false;
     // 选项校验：4个、去重、长度限制
     if (!isset($data['options']) || !is_array($data['options']) || count($data['options']) !== 4) return false;
-    if (count(array_unique($data['options'])) !== 4) return false;
+    if (count(array_unique($data['options'])) !== count($data['options'])) return false;
     foreach ($data['options'] as $opt) {
         if (!is_string($opt) || mb_strlen($opt) > 40) return false;
     }
@@ -215,11 +215,11 @@ function validateAiResponse($data) {
     if (!isset($data['wrongFeedback']) || !is_string($data['wrongFeedback']) || mb_strlen($data['wrongFeedback']) > 60) return false;
     return true;
 }
-
-// 限流：仅清理过期数据，保留有效记录
+// 限流：仅清理过期数据，保留有效记录（修复时间戳判断bug）
 function checkRateLimit($file, $key, $max, $ttl = 60) {
     list($fp, $data) = lockAndRead($file);
-    if (!$fp) return true;
+    // 拿不到锁直接拒绝，不能放行
+    if (!$fp) return false;
     
     $now = time();
     // 清理TTL外的过期记录
@@ -229,8 +229,8 @@ function checkRateLimit($file, $key, $max, $ttl = 60) {
             unset($data[$k]);
             continue;
         }
-        $timestamp = strtotime($parts[0]);
-        if ($timestamp === false || ($now - $timestamp) > $ttl) {
+        $ts = isset($parts[0]) ? (int)$parts[0] : 0;
+        if ($ts <= 0 || ($now - $ts) > $ttl) {
             unset($data[$k]);
         }
     }
@@ -245,7 +245,6 @@ function checkRateLimit($file, $key, $max, $ttl = 60) {
     writeAndUnlock($fp, $data);
     return true;
 }
-
 // ===== 熔断器 =====
 function checkCircuitBreaker($model_name) {
     global $circuit_breaker_file, $circuit_breaker_fail_count, $circuit_breaker_break_seconds;
@@ -272,7 +271,6 @@ function checkCircuitBreaker($model_name) {
     writeAndUnlock($fp, $data);
     return false;
 }
-
 function recordModelResult($model_name, $success) {
     global $circuit_breaker_file, $circuit_breaker_fail_count, $circuit_breaker_break_seconds;
     list($fp, $data) = lockAndRead($circuit_breaker_file);
@@ -295,7 +293,6 @@ function recordModelResult($model_name, $success) {
     }
     writeAndUnlock($fp, $data);
 }
-
 // 统一模型调用：支持重试、熔断、耗时统计
 function callLLM($url, $api_key, $model_name, $model_code, $system_prompt, $user_text, $json_mode = false, $temperature = 0.3, $retry = 1) {
     if (empty($api_key)) return [null, 0, 0];
@@ -372,7 +369,6 @@ function callLLM($url, $api_key, $model_name, $model_code, $system_prompt, $user
     
     return [$final_content, $last_http_code, $total_cost];
 }
-
 // 额度回滚
 function rollbackQuota($key, $today) {
     global $limit_file;
@@ -385,7 +381,6 @@ function rollbackQuota($key, $today) {
         fclose($fp);
     }
 }
-
 // ===== 运行时基础信息 =====
 $ip = getRealIp();
 $device_id = getDeviceId();
@@ -395,14 +390,12 @@ $today = date('Y-m-d');
 $minute_key = date('Y-m-d H:i');
 $hour_key = date('Y-m-d H');
 $device_log_id = substr(sha1($device_id), 0, 6); // 脱敏设备标识
-
 // IP黑名单
 $black_ips = json_decode(file_get_contents($black_ip_file), true) ?: [];
 if (in_array($ip, $black_ips)) {
     echo json_encode(['code' => 403, 'msg' => '访问受限', 'request_id' => $request_id]);
     exit;
 }
-
 // 三级限流
 if (!checkRateLimit($rate_limit_file, (string)$now . '|' . $device_id, $rate_per_second, 1)) {
     echo json_encode(['code' => 429, 'msg' => '请求过于频繁，请稍后再试', 'request_id' => $request_id]);
@@ -416,7 +409,6 @@ if (!checkRateLimit($rate_hour_file, $hour_key . '|' . $device_id, $rate_per_hou
     echo json_encode(['code' => 429, 'msg' => '调用过于频繁，请稍后再试', 'request_id' => $request_id]);
     exit;
 }
-
 // ===== VIP校验 + 设备绑定 =====
 $clientToken = $_SERVER['HTTP_X_VIP_TOKEN'] ?? '';
 $is_vip = false;
@@ -451,7 +443,6 @@ if (!empty($clientToken) && ctype_xdigit($clientToken)) {
         fclose($fp);
     }
 }
-
 // 会员状态查询
 if (isset($_GET['action']) && $_GET['action'] === 'check') {
     echo json_encode([
@@ -463,7 +454,6 @@ if (isset($_GET['action']) && $_GET['action'] === 'check') {
     ]);
     exit;
 }
-
 // ===== 每日额度校验 =====
 $current_limit = $is_vip ? $daily_limit_vip : $daily_limit_free;
 list($fp, $limit_data) = lockAndRead($limit_file);
@@ -476,6 +466,7 @@ if (!$fp) {
 foreach ($limit_data as $key => $item) {
     if ($item['date'] !== $today) unset($limit_data[$key]);
 }
+// 1. 设备维度额度校验（原有逻辑）
 $limit_key = $device_id;
 if (!isset($limit_data[$limit_key])) {
     $limit_data[$limit_key] = ['date' => $today, 'count' => 0];
@@ -488,27 +479,39 @@ if ($limit_data[$limit_key]['count'] >= $current_limit) {
     exit;
 }
 $limit_data[$limit_key]['count']++;
-writeAndUnlock($fp, $limit_data);
+// 2. IP维度兜底校验（仅对免费用户生效，防止清Cookie刷量）
+if (!$is_vip) {
+    $ip_limit_key = 'ip_' . $ip;
+    $ip_daily_max = 200; // 单IP每日免费调用上限，可自行调整
+    if (!isset($limit_data[$ip_limit_key])) {
+        $limit_data[$ip_limit_key] = ['date' => $today, 'count' => 0];
+    }
+    if ($limit_data[$ip_limit_key]['count'] >= $ip_daily_max) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+        echo json_encode(['code' => 429, 'msg' => '今日免费次数已用完，请开通会员', 'request_id' => $request_id]);
+        exit;
+    }
+    $limit_data[$ip_limit_key]['count']++;
+}
 
+writeAndUnlock($fp, $limit_data);
 // ===== 文本校验与清洗 =====
 $rawInput = file_get_contents('php://input');
 $input = json_decode($rawInput, true);
 $text = trim($input['text'] ?? '');
 $text = preg_replace('/[\x00-\x1F\x7F\xA0]/u', '', $text);
-
 if (isIllegalText($text)) {
     rollbackQuota($limit_key, $today);
     echo json_encode(['code' => 403, 'msg' => '文本包含违规内容', 'request_id' => $request_id]);
     exit;
 }
-
 // 深度清洗，保证Prompt稳定
 $text = strip_tags($text);
 $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 $text = preg_replace('/\s+/u', ' ', $text);
 $text = trim($text);
 $text_len = mb_strlen($text);
-
 if ($text_len < 2) {
     rollbackQuota($limit_key, $today);
     echo json_encode(['code' => 400, 'msg' => '选中内容过短', 'request_id' => $request_id]);
@@ -519,7 +522,6 @@ if ($text_len > $max_text_length) {
     echo json_encode(['code' => 400, 'msg' => "文本过长，请分段阅读（单段不超过{$max_text_length}字）", 'request_id' => $request_id]);
     exit;
 }
-
 // ===== 划词极简解释接口 =====
 $action = isset($input['action']) ? trim($input['action']) : 'full';
 if ($action === 'explain') {
@@ -528,7 +530,6 @@ if ($action === 'explain') {
         echo json_encode(['code' => 400, 'msg' => '请选择更小范围的内容进行解释', 'request_id' => $request_id]);
         exit;
     }
-
     // 模型列表，按优先级排序
     $model_list = [];
     if ($is_vip && !empty($deepseek_key)) {
@@ -542,13 +543,11 @@ if ($action === 'explain') {
         echo json_encode(['code' => 500, 'msg' => 'AI服务暂不可用', 'request_id' => $request_id]);
         exit;
     }
-
     $primary_model = $model_list[0]['name'];
     $cache_key = md5($explain_prompt_version . '|' . $primary_model . '|' . $text);
     $is_cached = false;
     $used_model = $primary_model;
     $ai_cost_ms = 0;
-
     // 读取缓存，带TTL过期清理
     list($cache_fp, $cache_data) = lockAndRead($explain_cache_file);
     if ($cache_fp && isset($cache_data[$cache_key])) {
@@ -570,12 +569,10 @@ if ($action === 'explain') {
             }
         }
     }
-
     if ($is_cached && $cache_fp) {
         flock($cache_fp, LOCK_UN);
         fclose($cache_fp);
     }
-
     // 无缓存调用AI
     if (!$is_cached) {
         $explain_prompt = <<<EOF
@@ -590,7 +587,6 @@ if ($action === 'explain') {
 6. 禁止使用Markdown、编号、引号、Emoji、任何格式符号
 7. 直接输出解释内容，不要任何前缀后缀
 EOF;
-
         $ai_result = null;
         foreach ($model_list as $m) {
             list($ai_result, $http_code, $cost_ms) = callLLM(
@@ -604,14 +600,12 @@ EOF;
                 break;
             }
         }
-
         if (!$ai_result) {
             if ($cache_fp) { flock($cache_fp, LOCK_UN); fclose($cache_fp); }
             rollbackQuota($limit_key, $today);
             echo json_encode(['code' => 500, 'msg' => 'AI服务暂不可用', 'request_id' => $request_id]);
             exit;
         }
-
         // 清洗结果
         $result_text = trim($ai_result);
         $result_text = preg_replace('/[#*`"\'_\-\r\n\t]/', '', $result_text);
@@ -619,7 +613,6 @@ EOF;
         if (mb_strlen($result_text) > 22) {
             $result_text = mb_substr($result_text, 0, 20) . '…';
         }
-
         // 写入缓存
         if ($cache_fp) {
             if (count($cache_data) > 1000) {
@@ -632,7 +625,6 @@ EOF;
             writeAndUnlock($cache_fp, $cache_data);
         }
     }
-
     // 更新统计
     list($fp, $stats) = lockAndRead($stats_file);
     if ($fp) {
@@ -660,7 +652,6 @@ EOF;
         }
         writeAndUnlock($fp, $stats);
     }
-
     // 访问日志（设备ID脱敏）
     writeAccessLog([
         'request_id' => $request_id,
@@ -675,7 +666,6 @@ EOF;
         'ai_cost_ms' => $ai_cost_ms,
         'total_cost_ms' => round((microtime(true) - $request_start_time) * 1000)
     ]);
-
     echo json_encode([
         'code' => 0,
         'request_id' => $request_id,
@@ -685,7 +675,6 @@ EOF;
     ]);
     exit;
 }
-
 // ===== 精读模式系统提示词 =====
 $system_prompt = <<<EOF
 你是专为ADHD人群设计的阅读辅助引擎，仅处理正规文学、书籍、科普、学术类合规文本。
@@ -718,13 +707,11 @@ $system_prompt = <<<EOF
   "wrongFeedback": "答错的引导语"
 }
 EOF;
-
 // ===== 双轨调用逻辑 =====
 $ai_data = null;
 $used_model = 'zhipu';
 $ai_cost_ms = 0;
 $mode = isset($input['mode']) ? trim($input['mode']) : 'standard';
-
 $model_list = [];
 if ($is_vip && $mode === 'ai' && !empty($deepseek_key)) {
     $model_list[] = ['name' => 'deepseek', 'url' => $deepseek_url, 'key' => $deepseek_key, 'code' => $deepseek_model];
@@ -732,7 +719,6 @@ if ($is_vip && $mode === 'ai' && !empty($deepseek_key)) {
 if (!empty($zhipu_key)) {
     $model_list[] = ['name' => 'zhipu', 'url' => $zhipu_url, 'key' => $zhipu_key, 'code' => $zhipu_model];
 }
-
 foreach ($model_list as $m) {
     $json_mode = (strpos($m['code'], 'deepseek') !== false);
     list($content, $http_code, $cost_ms) = callLLM(
@@ -758,13 +744,11 @@ foreach ($model_list as $m) {
         recordModelResult($m['name'], false);
     }
 }
-
 if (!$ai_data) {
     rollbackQuota($limit_key, $today);
     echo json_encode(['code' => 500, 'msg' => 'AI服务暂不可用，请稍后重试', 'request_id' => $request_id]);
     exit;
 }
-
 // ===== 更新统计 =====
 list($fp, $stats) = lockAndRead($stats_file);
 if ($fp) {
@@ -790,7 +774,6 @@ if ($fp) {
     }
     writeAndUnlock($fp, $stats);
 }
-
 // 访问日志
 writeAccessLog([
     'request_id' => $request_id,
@@ -805,7 +788,6 @@ writeAccessLog([
     'ai_cost_ms' => $ai_cost_ms,
     'total_cost_ms' => round((microtime(true) - $request_start_time) * 1000)
 ]);
-
 // ===== 返回结果 =====
 echo json_encode([
     'code' => 0,
