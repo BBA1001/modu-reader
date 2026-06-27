@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>墨读 · 专注阅读</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #f7f5f0;
+            font-family: -apple-system, "PingFang SC", "Noto Serif SC", serif;
+            padding: 16px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            color: #2c2824;
+        }
+        .container {
+            max-width: 580px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 24px 20px 32px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.05);
+            margin-top: 12px;
+        }
+        /* 顶部导航 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0ede8;
+        }
+        .header h2 { font-size: 18px; font-weight: 500; color: #2c2824; }
+        .header-right { display: flex; gap: 8px; align-items: center; }
+        .icon-btn {
+            font-size: 16px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .icon-btn:active { background: #f0ede8; }
+        /* 状态栏 */
+        .status-bar {
+            font-size: 12px; color: #b0a8a0; text-align: right;
+            min-height: 20px; margin-bottom: 12px;
+        }
+        .status-bar .saved { color: #6a8a5a; }
+        /* 进度条 */
+        .progress-bar {
+            height: 2px;
+            background: #f0ede8;
+            border-radius: 2px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .progress-bar-inner {
+            height: 100%;
+            background: #b86b3a;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        /* 输入区 */
+        .input-area textarea {
+            width: 100%; padding: 16px; border: 1px solid #e0dad4;
+            border-radius: 16px; font-size: 15px; font-family: inherit;
+            background: #fcfbf9; min-height: 200px; resize: vertical;
+            line-height: 1.8; color: #2c2824; transition: border 0.2s;
+        }
+        .input-area textarea:focus { outline: none; border-color: #b86b3a; }
+        .input-area .hint {
+            font-size: 13px; color: #b0a8a0; margin-top: 8px; line-height: 1.6;
+        }
+        .btn-start {
+            background: #b86b3a; color: #fff; border: none; border-radius: 60px;
+            padding: 14px 28px; font-size: 16px; font-weight: 500; font-family: inherit;
+            cursor: pointer; width: 100%; margin-top: 12px; transition: background 0.2s;
+        }
+        .btn-start:active { background: #a55d30; transform: scale(0.98); }
+        /* 阅读区 */
+        .reader-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f0ede8;
+        }
+        .book-title {
+            font-size: 15px; font-weight: 500; color: #3d3a36;
+            max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .progress-text { font-size: 13px; color: #b0a8a0; }
+        .paragraph-card {
+            background: #fcfbf9; border-radius: 16px; padding: 28px 22px;
+            margin-bottom: 20px; border-left: 4px solid #d4c9bc;
+            min-height: 160px; transition: all 0.25s ease;
+            position: relative;
+        }
+        .paragraph-card .content {
+            font-size: 17px; line-height: 1.9; color: #2c2824;
+            letter-spacing: 0.5px; word-break: break-word;
+            user-select: text;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .paragraph-card .content.fade-out {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        .paragraph-card .content .anchor {
+            font-weight: 600; color: #b86b3a;
+        }
+        .loading-tip {
+            font-size: 12px; color: #b0a8a0; text-align: center; margin-top: 12px;
+        }
+        /* 主操作按钮 */
+        .btn-group {
+            display: flex; gap: 10px; align-items: center; margin-bottom: 16px;
+        }
+        .btn-prev {
+            flex: 1; background: transparent; border: 1px solid #e0dad4;
+            border-radius: 60px; padding: 14px; font-size: 15px; color: #8a8078;
+            font-family: inherit; cursor: pointer;
+            display: block;
+        }
+        .btn-prev.hidden { display: none; }
+        .btn-primary {
+            flex: 2; background: #b86b3a; color: #fff; border: none;
+            border-radius: 60px; padding: 16px 20px; font-size: 17px;
+            font-weight: 500; font-family: inherit; cursor: pointer;
+            text-align: center; transition: background 0.2s;
+        }
+        .btn-primary:active { background: #a55d30; transform: scale(0.98); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        /* 完成状态 */
+        .complete-state {
+            display: none; text-align: center; padding: 40px 0 20px;
+        }
+        .complete-state .emoji { font-size: 48px; margin-bottom: 10px; }
+        .complete-state .msg { font-size: 18px; font-weight: 500; color: #2c2824; margin-bottom: 8px; }
+        .complete-state .sub-msg { font-size: 13px; color: #8a8078; margin-bottom: 20px; }
+        /* 次要按钮组 */
+        .sub-btn-group {
+            display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+        }
+        .btn-secondary {
+            background: transparent; border: 1px solid #e0dad4; border-radius: 40px;
+            padding: 8px 18px; font-size: 13px; color: #8a8078;
+            font-family: inherit; cursor: pointer;
+        }
+        .btn-secondary:active { background: #f5f2ed; }
+        .hidden { display: none !important; }
+
+        /* 划词解释底部栏 */
+.explain-bar {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 12px;
+    background: #b86b3a;
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(184, 107, 58, 0.3);
+    user-select: none;
+    display: none;
+    transition: opacity 0.2s;
+}
+.explain-bar.show { display: block; }
+.explain-bar:active { opacity: 0.8; }
+
+/* 原地解释结果 */
+.inline-explain {
+    color: #8a8078;
+    font-size: 14px;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed #e0dad4;
+    line-height: 1.7;
+    user-select: none;
+}
+
+
+        /* 设置面板 */
+        .settings-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px); display: none;
+            justify-content: center; align-items: center; z-index: 1000; padding: 20px;
+        }
+        .settings-overlay.active { display: flex; }
+        .settings-card {
+            background: #ffffff; border-radius: 28px; max-width: 420px; width: 100%;
+            padding: 28px 24px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            animation: fadeUp 0.25s ease; max-height: 85vh; overflow-y: auto;
+        }
+        .settings-card h3 {
+            font-size: 18px; font-weight: 500; color: #2c2824; margin-bottom: 20px;
+        }
+        .setting-item {
+            padding: 14px 0; border-bottom: 1px solid #f0ede8;
+        }
+        .setting-item:last-child { border-bottom: none; }
+        .setting-row {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 6px;
+        }
+        .setting-label { font-size: 15px; color: #2c2824; }
+        .setting-desc { font-size: 12px; color: #8a8078; line-height: 1.5; }
+        .setting-select {
+            padding: 6px 10px; border: 1px solid #e0dad4; border-radius: 10px;
+            font-size: 13px; font-family: inherit; background: #fcfbf9; color: #2c2824;
+        }
+        .setting-switch {
+            position: relative; width: 40px; height: 22px;
+            background: #e0dad4; border-radius: 20px; cursor: pointer;
+            transition: background 0.2s; flex-shrink: 0;
+        }
+        .setting-switch.on { background: #b86b3a; }
+        .setting-switch::after {
+            content: ''; position: absolute; top: 2px; left: 2px;
+            width: 18px; height: 18px; background: #fff; border-radius: 50%;
+            transition: left 0.2s;
+        }
+        .setting-switch.on::after { left: 20px; }
+        .btn-close-settings {
+            background: #b86b3a; color: #fff; border: none; border-radius: 60px;
+            padding: 12px; font-size: 15px; font-weight: 500; font-family: inherit;
+            width: 100%; cursor: pointer; margin-top: 20px;
+        }
+
+        /* 会员弹窗 */
+        .vip-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px); display: none;
+            justify-content: center; align-items: center; z-index: 1000; padding: 20px;
+        }
+        .vip-overlay.active { display: flex; }
+        .vip-card {
+            background: #ffffff; border-radius: 28px; max-width: 400px; width: 100%;
+            padding: 32px 28px 28px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            animation: fadeUp 0.25s ease;
+        }
+        .vip-card h3 {
+            font-size: 18px; font-weight: 500; color: #2c2824; margin-bottom: 16px;
+        }
+        .privilege {
+            display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px;
+        }
+        .privilege .icon { color: #b86b3a; font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+        .privilege .desc { font-size: 15px; line-height: 1.7; color: #3d3a36; }
+        .vip-status-text {
+            font-size: 14px; color: #b86b3a; margin: 12px 0; text-align: center;
+        }
+        .redeem-row {
+            display: flex; gap: 8px; margin-top: 12px;
+        }
+        .redeem-row input {
+            flex: 1; padding: 10px; border: 1px solid #e0dad4;
+            border-radius: 12px; font-size: 14px; font-family: inherit;
+        }
+        .btn-redeem {
+            background: #b86b3a; color: #fff; border: none; border-radius: 12px;
+            padding: 0 18px; font-size: 14px; cursor: pointer; font-family: inherit;
+            white-space: nowrap;
+        }
+
+        /* 沉浸模式 */
+        body.immersive .header,
+        body.immersive .status-bar,
+        body.immersive .progress-bar,
+        body.immersive .reader-header,
+        body.immersive .sub-btn-group {
+            display: none !important;
+        }
+        body.immersive .container {
+            box-shadow: none; background: transparent; margin-top: 0; padding: 0;
+        }
+        body.immersive .paragraph-card {
+            border-left: none; background: transparent; padding: 60px 0;
+        }
+        body.immersive .complete-state { padding: 80px 0; }
+        body.immersive .btn-group { justify-content: center; }
+        body.immersive .btn-prev { display: none; }
+        body.immersive .btn-primary {
+            background: transparent; border: 1px solid #e0dad4; color: #8a8078;
+            max-width: 240px;
+        }
+        .immersive-tip {
+            position: fixed; bottom: 20px; right: 20px;
+            font-size: 12px; color: #c8c0b8; opacity: 0;
+            transition: opacity 0.3s; pointer-events: none;
+        }
+        body.immersive .immersive-tip { opacity: 0.5; }
+
+        /* 关闭动效 */
+        body.no-animation * {
+            transition: none !important;
+            animation: none !important;
+        }
+        @keyframes fadeUp {
+            0% { opacity: 0; transform: translateY(20px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .container { padding: 20px 16px 28px; }
+            .paragraph-card { padding: 22px 18px; }
+            .paragraph-card .content { font-size: 16px; line-height: 1.85; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- 顶部 -->
+        <div class="header">
+            <h2>📖 墨读</h2>
+            <div class="header-right">
+                <span class="icon-btn" id="settingsBtn" title="设置">⚙️</span>
+            </div>
+        </div>
+        <div class="status-bar" id="statusBar">逐段阅读 · 自动保存进度</div>
+        <!-- 输入区 -->
+        <div class="input-area" id="inputArea">
+            <textarea id="textInput" placeholder="把你要读的文字粘贴在这里&#10;&#10;自动拆分段落 · 核心词高亮 · 划词原地解释"></textarea>
+            <div class="hint">
+                💡 从电子书复制正文粘贴即可，选中文字可一键解释
+            </div>
+            <button class="btn-start" id="btnStart">开始阅读</button>
+        </div>
+        <!-- 阅读区 -->
+        <div id="readerArea" class="hidden">
+            <div class="reader-header">
+                <span class="book-title" id="bookTitle">当前阅读</span>
+                <span class="progress-text" id="progressDisplay">0 / 0</span>
+            </div>
+            <div class="progress-bar"><div class="progress-bar-inner" id="progressBar"></div></div>
+            <div class="paragraph-card" id="paraCard">
+                <div class="content" id="paraContent"></div>
+                <div class="loading-tip" id="loadingTip" style="display:none;">AI解析中...</div>
+            </div>
+            <div class="btn-group">
+                <button class="btn-prev hidden" id="btnPrev">← 上一段</button>
+                <button class="btn-primary" id="btnUnderstand">已理解 · 继续</button>
+            </div>
+            <div class="complete-state" id="completeState">
+                <div class="emoji">🎉</div>
+                <div class="msg" id="completeMsg">全部读完啦</div>
+                <div class="sub-msg" id="completeSubMsg"></div>
+            </div>
+            <div class="sub-btn-group">
+                <button class="btn-secondary" id="btnReset">↺ 重读</button>
+                <button class="btn-secondary" id="btnBack">← 换文字</button>
+                <button class="btn-secondary" id="btnClearProgress">🗑 清进度</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置面板 -->
+    <div class="settings-overlay" id="settingsOverlay">
+        <div class="settings-card">
+            <h3>⚙️ 阅读设置</h3>
+            <div class="setting-item">
+                <div class="setting-row">
+                    <span class="setting-label">核心词高亮</span>
+                    <div class="setting-switch" id="switchHighlight"></div>
+                </div>
+                <div class="setting-desc">高亮段落核心关键词，帮助快速抓重点</div>
+                <div class="setting-row" style="margin-top:8px;">
+                    <span class="setting-desc">高亮数量</span>
+                    <select class="setting-select" id="highlightCount">
+                        <option value="1">仅1个（最专注）</option>
+                        <option value="2">2个</option>
+                        <option value="3">3个</option>
+                        <option value="4">4个</option>
+                    </select>
+                </div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-row">
+                    <span class="setting-label">AI自动预解析</span>
+                    <div class="setting-switch" id="switchAiAuto"></div>
+                </div>
+                <div class="setting-desc">关闭后仅手动触发AI，更省流量</div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-row">
+                    <span class="setting-label">纯沉浸模式</span>
+                    <div class="setting-switch" id="switchImmersive"></div>
+                </div>
+                <div class="setting-desc">隐藏所有按钮菜单，只剩文字</div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-row">
+                    <span class="setting-label">页面动效</span>
+                    <div class="setting-switch" id="switchAnimation"></div>
+                </div>
+                <div class="setting-desc">关闭后减少视觉刺激，适合敏感状态</div>
+            </div>
+            <div class="setting-item">
+                <div class="setting-row">
+                    <span class="setting-label">段落字号</span>
+                    <select class="setting-select" id="fontSize">
+                        <option value="15px">小</option>
+                        <option value="17px" selected>中</option>
+                        <option value="19px">大</option>
+                        <option value="21px">超大</option>
+                    </select>
+                </div>
+                <div class="setting-desc">根据你的阅读舒适度调整</div>
+            </div>
+            <button class="btn-close-settings" id="btnCloseSettings">保存并关闭</button>
+        </div>
+    </div>
+
+    <!-- 会员弹窗 -->
+    <div class="vip-overlay" id="vipOverlay">
+        <div class="vip-card">
+            <h3>✨ 会员权益</h3>
+            <div class="privilege"><span class="icon">🎯</span><span class="desc">高级模型，解释更精准通顺</span></div>
+            <div class="privilege"><span class="icon">♾️</span><span class="desc">每日200次AI调用，支持长文本</span></div>
+            <div class="privilege"><span class="icon">🔄</span><span class="desc">后续所有优化功能优先体验</span></div>
+            <p class="vip-status-text" id="vipStatusText">月卡 9.9元 / 年卡 68元</p>
+            <p style="font-size:12px;color:#b0a8a0;text-align:center;">兑换码请在下方输入</p>
+            <div class="redeem-row">
+                <input type="text" id="redeemCode" placeholder="输入8位兑换码" maxlength="8" />
+                <button class="btn-redeem" id="btnRedeem">兑换</button>
+            </div>
+        </div>
+    </div>
+    <div class="immersive-tip">长按页面退出沉浸 · 按 I 键切换</div>
+
+    <script>
+    (function() {
+        'use strict';
+        // 常量
+        const API_URL = './modu_ai.php';
+        const ADMIN_URL = './admin.php';
+        const VIP_TOKEN_KEY = 'modu_vip_token';
+        const STORAGE_KEY = 'modu_reader_progress';
+        const SETTINGS_KEY = 'modu_reader_settings';
+        let saveTimer = null; // 进度保存防抖
+
+        // ========== 工具函数 ==========
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&#039;');
+        }
+        function escapeRegExp(str) {
+            return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        function checkIllegalText(text) {
+            // 前端仅做体验提示，安全校验以后端为准
+            const badWords = ['色情','黄片','裸聊','赌博','博彩','毒品','杀人','诈骗','翻墙','破解'];
+            const lower = text.toLowerCase();
+            for (const w of badWords) {
+                if (lower.includes(w)) return true;
+            }
+            return false;
+        }
+        function debounce(fn, delay) {
+            let timer = null;
+            return function(...args) {
+                clearTimeout(timer);
+                timer = setTimeout(() => fn.apply(this, args), delay);
+            };
+        }
+
+        // DOM元素
+        const textInput = document.getElementById('textInput');
+        const btnStart = document.getElementById('btnStart');
+        const inputArea = document.getElementById('inputArea');
+        const readerArea = document.getElementById('readerArea');
+        const bookTitle = document.getElementById('bookTitle');
+        const progressDisplay = document.getElementById('progressDisplay');
+        const progressBar = document.getElementById('progressBar');
+        const paraContent = document.getElementById('paraContent');
+        const paraCard = document.getElementById('paraCard');
+        const loadingTip = document.getElementById('loadingTip');
+        const btnUnderstand = document.getElementById('btnUnderstand');
+        const btnPrev = document.getElementById('btnPrev');
+        const completeState = document.getElementById('completeState');
+        const completeMsg = document.getElementById('completeMsg');
+        const completeSubMsg = document.getElementById('completeSubMsg');
+        const btnReset = document.getElementById('btnReset');
+        const btnBack = document.getElementById('btnBack');
+        const btnClearProgress = document.getElementById('btnClearProgress');
+        const statusBar = document.getElementById('statusBar');
+        const settingsOverlay = document.getElementById('settingsOverlay');
+        // 全局状态
+        let paragraphs = [];
+        let currentParaIndex = 0;
+        let isCompleted = false;
+        let isVip = false;
+        let aiLoading = false;
+        let readStartTime = 0;
+        // 停用词表
+        const STOP_WORDS = new Set([
+            '的','了','是','在','和','与','及','或','也','都','就','还','又','更','很','最','太',
+            '这','那','此','其','之','所','以','于','对','从','到','向','往','由','把','被',
+            '一个','一些','一种','一样','不同','各种','每个','所有','整个','部分','其中','之间',
+            '我们','你们','他们','它们','自己','别人','大家','人们',
+            '就是','只是','还是','但是','然而','因此','所以','因为','由于','如果','虽然',
+            '进行','做到','达到','实现','完成','开始','结束','通过','根据','按照','关于','对于'
+        ]);
+        
+        
+// ========== 划词原地解释 ==========
+let selectedText = '';
+const explainBar = document.createElement('div');
+explainBar.className = 'explain-bar';
+explainBar.textContent = '🔍 解释选中内容';
+explainBar.addEventListener('click', handleExplain);
+paraCard.appendChild(explainBar);
+
+// 监听选区变化（PC/移动端全兼容）
+document.addEventListener('selectionchange', function() {
+    if (readerArea.classList.contains('hidden')) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+        explainBar.classList.remove('show');
+        selectedText = '';
+        return;
+    }
+    const text = selection.toString().trim();
+    // 长度限制：2~60字
+    if (text.length < 2 || text.length > 60) {
+        explainBar.classList.remove('show');
+        selectedText = '';
+        return;
+    }
+    // 仅当选区在阅读内容内才显示
+    const range = selection.getRangeAt(0);
+    if (paraContent.contains(range.commonAncestorContainer)) {
+        selectedText = text;
+        explainBar.classList.add('show');
+    }
+});
+
+// 点击空白移除解释结果
+document.addEventListener('click', function(e) {
+    if (!explainBar.contains(e.target) && !paraContent.contains(e.target)) {
+        removeInlineExplain();
+    }
+});
+
+function removeInlineExplain() {
+    const el = document.querySelector('.inline-explain');
+    if (el) el.remove();
+}
+
+async function handleExplain() {
+    if (!selectedText || aiLoading) return;
+    aiLoading = true;
+    explainBar.textContent = '解析中...';
+    
+    try {
+        const res = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Vip-Token': localStorage.getItem(VIP_TOKEN_KEY) || ''
+            },
+            body: JSON.stringify({
+                text: selectedText,
+                context: paragraphs[currentParaIndex].text, // 传入当前整段原文
+                action: 'explain'
+            })
+        });
+        const result = await res.json();
+        if (result.code === 0) {
+            showInlineExplain(result.data);
+        } else {
+            showInlineExplain(result.msg || '解释失败，请稍后重试');
+        }
+    } catch (err) {
+        showInlineExplain('网络异常');
+    } finally {
+        aiLoading = false;
+        explainBar.textContent = '🔍 解释选中内容';
+        explainBar.classList.remove('show');
+        window.getSelection().removeAllRanges();
+    }
+}
+
+function showInlineExplain(text) {
+    removeInlineExplain();
+    const el = document.createElement('div');
+    el.className = 'inline-explain';
+    el.innerHTML = `💡 ${escapeHtml(text)}`;
+    paraCard.appendChild(el);
+}
+
+
+        // ========== 段落拆分算法 ==========
+        function splitIntoParagraphs(text) {
+            // 优先按换行拆分
+            let raw = text.split(/\n+/).filter(p => p.trim().length > 10);
+            // 没有换行则按句号拆分
+            if (raw.length === 0) {
+                raw = text.split(/([。！？!?])/).reduce((acc, cur, idx, arr) => {
+                    if (idx % 2 === 0 && cur.trim()) acc.push(cur.trim() + (arr[idx+1] || ''));
+                    return acc;
+                }, []);
+            }
+            // 长段落再拆分，控制单段长度
+            let result = [];
+            const MAX_LEN = 180;
+            raw.forEach(para => {
+                para = para.trim();
+                if (para.length <= MAX_LEN) {
+                    if (para.length > 10) result.push(para);
+                    return;
+                }
+                const sentences = para.split(/([。！？!?])/).reduce((acc, cur, idx, arr) => {
+                    if (idx % 2 === 0 && cur.trim()) acc.push(cur.trim() + (arr[idx+1] || ''));
+                    return acc;
+                }, []);
+                let currentChunk = '';
+                sentences.forEach(sent => {
+                    if ((currentChunk + sent).length <= MAX_LEN) {
+                        currentChunk += sent;
+                    } else {
+                        if (currentChunk) result.push(currentChunk);
+                        currentChunk = sent;
+                    }
+                });
+                if (currentChunk) result.push(currentChunk);
+            });
+            if (result.length === 0) result.push(text.trim());
+            if (result.length > 100) result = result.slice(0, 100);
+            return result;
+        }
+        // 本地提取锚点
+        function extractAnchorsLocal(text) {
+            const anchors = [];
+            const seen = new Set();
+            
+            // 优先提取引号、书名号内容
+            const quoted = text.match(/"([^"]{4,25})"/g) || [];
+            const bookTitles = text.match(/《([^》]{2,20})》/g) || [];
+            [...quoted, ...bookTitles].forEach(item => {
+                const clean = item.replace(/["《》]/g, '').trim();
+                if (clean.length > 2 && !seen.has(clean) && isMeaningfulWord(clean)) {
+                    seen.add(clean);
+                    anchors.push({ word: clean, weight: 100 });
+                }
+            });
+            // 提取结论性短语
+            const conclusionPatterns = [
+                /也就是说[，,](.{4,20})[。，,]/g,
+                /因此[，,](.{4,20})[。，,]/g,
+                /本质上[，,](.{4,20})[。，,]/g,
+                /核心是[，,](.{4,20})[。，,]/g,
+                /关键在于[，,](.{4,20})[。，,]/g
+            ];
+            conclusionPatterns.forEach(pattern => {
+                const matches = text.matchAll(pattern);
+                for (const m of matches) {
+                    const phrase = cleanPhrase(m[1]);
+                    if (phrase && phrase.length > 3 && !seen.has(phrase) && isMeaningfulWord(phrase)) {
+                        seen.add(phrase);
+                        anchors.push({ word: phrase, weight: 80 });
+                    }
+                }
+            });
+            // 提取名词性短语
+            const nounPatterns = [
+                /[\u4e00-\u9fa5]{2,8}(?:学|论|主义|思想|原则|方法|能力|特征|规律|体系|模式)/g,
+                /(?:个体|整体|生命|科学|心理|社会|自然|客观|主观)[\u4e00-\u9fa5]{2,8}/g
+            ];
+            nounPatterns.forEach(pattern => {
+                const matches = text.match(pattern) || [];
+                matches.forEach(word => {
+                    if (word.length > 3 && !seen.has(word) && isMeaningfulWord(word)) {
+                        seen.add(word);
+                        const freq = (text.match(new RegExp(escapeRegExp(word), 'g')) || []).length;
+                        anchors.push({ word, weight: 50 + freq * 10 });
+                    }
+                });
+            });
+            // 兜底：从首句提取
+            const firstSentence = text.split(/[。！？!?]/)[0] || '';
+            if (anchors.length < 1 && firstSentence.length > 10) {
+                const fallbackWords = extractNounsFromSentence(firstSentence);
+                fallbackWords.forEach(word => {
+                    if (!seen.has(word) && word.length > 2) {
+                        seen.add(word);
+                        anchors.push({ word, weight: 30 });
+                    }
+                });
+            }
+            anchors.sort((a, b) => b.weight - a.weight);
+            // 去重嵌套
+            const result = [];
+            anchors.forEach(item => {
+                const isNested = result.some(r => r.word.includes(item.word));
+                if (!isNested) result.push(item);
+            });
+            return result.slice(0, 2).map(a => a.word);
+        }
+        function isMeaningfulWord(str) {
+            if (str.length < 3) return false;
+            if (/^\d+$/.test(str)) return false;
+            if (STOP_WORDS.has(str)) return false;
+            return true;
+        }
+        function cleanPhrase(str) {
+            let s = str.trim();
+            s = s.replace(/^(的|了|是|在|和|与|及|或)/, '');
+            s = s.replace(/(的|了|是|在|和|与|及|或)$/, '');
+            return s.trim();
+        }
+        function extractNounsFromSentence(sentence) {
+            const words = [];
+            for (let len = 6; len >= 3; len--) {
+                for (let i = 0; i <= sentence.length - len; i++) {
+                    const word = sentence.slice(i, i + len);
+                    if (/^[\u4e00-\u9fa5]+$/.test(word) && isMeaningfulWord(word)) {
+                        words.push(word);
+                    }
+                }
+            }
+            return words.slice(0, 3);
+        }
+
+        // ========== AI接口 ==========
+        async function generateHookAI(text, mode = 'standard') {
+            if (!text || text.trim().length < 15) return null;
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Vip-Token': localStorage.getItem(VIP_TOKEN_KEY) || ''
+                    },
+                    body: JSON.stringify({ 
+                        text: text.trim(),
+                        mode: mode
+                    })
+                });
+                const result = await response.json();
+                return result.code === 0 ? result.data : null;
+            } catch (err) {
+                console.error('AI接口异常：', err);
+                return null;
+            }
+        }
+        // ========== 进度持久化 ==========
+        function saveProgress() {
+            // 防抖保存，减少localStorage IO
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                try {
+                    const data = {
+                        paragraphs: paragraphs.map(p => ({ text: p.text, anchors: p.anchors, hook: p.hook })),
+                        currentParaIndex: currentParaIndex,
+                        isCompleted: isCompleted
+                    };
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                    statusBar.innerHTML = '💾 已保存进度 <span class="saved">✓</span>';
+                } catch (e) {}
+            }, 500);
+        }
+        function loadProgress() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                if (!data.paragraphs || data.paragraphs.length === 0) return null;
+                return data;
+            } catch (e) { return null; }
+        }
+        function clearProgress() {
+            localStorage.removeItem(STORAGE_KEY);
+            statusBar.innerHTML = '🗑 进度已清除';
+        }
+        // ========== 渲染核心 ==========
+        async function renderParagraph(index, animate = true) {
+            // 读完状态
+            if (!paragraphs.length || index >= paragraphs.length) {
+                isCompleted = true;
+                paraContent.innerHTML = '';
+                progressDisplay.textContent = '✅ 完成';
+                progressBar.style.width = '100%';
+                btnUnderstand.style.display = 'none';
+                completeState.style.display = 'block';
+                completeMsg.textContent = '🎉 全部读完啦';
+                const readMinutes = Math.round((Date.now() - readStartTime) / 60000);
+                completeSubMsg.textContent = `共 ${paragraphs.length} 段 · 用时约 ${readMinutes} 分钟`;
+                saveProgress();
+                return;
+            }
+
+            // 翻页动画
+            if (animate && !settings.animation) animate = false;
+            if (animate) {
+                paraContent.classList.add('fade-out');
+                await new Promise(resolve => setTimeout(resolve, 150));
+            }
+
+            const para = paragraphs[index];
+            let displayText = escapeHtml(para.text);
+            const anchors = para.anchors || [];
+            const sorted = [...anchors].sort((a, b) => b.length - a.length);
+            
+            // 应用高亮设置
+            if (!settings.highlight) sorted.length = 0;
+            else sorted.length = Math.min(sorted.length, settings.highlightCount);
+            
+            sorted.forEach(word => {
+                const escapedWord = escapeHtml(word);
+                const regex = new RegExp(escapeRegExp(escapedWord), 'g');
+                displayText = displayText.replace(regex, `<span class="anchor">${escapedWord}</span>`);
+            });
+            paraContent.innerHTML = displayText;
+            
+            // 更新进度
+            progressDisplay.textContent = `${index + 1} / ${paragraphs.length}`;
+            const percent = paragraphs.length > 1 ? ((index) / (paragraphs.length - 1)) * 100 : 100;
+            progressBar.style.width = `${percent}%`;
+            
+            // 按钮状态
+            completeState.style.display = 'none';
+            btnUnderstand.style.display = 'block';
+            btnUnderstand.disabled = false;
+            if (index === 0) {
+                btnPrev.classList.add('hidden');
+            } else {
+                btnPrev.classList.remove('hidden');
+                btnPrev.disabled = false;
+            }
+
+            // 动画恢复
+            if (animate) {
+                requestAnimationFrame(() => {
+                    paraContent.classList.remove('fade-out');
+                });
+            }
+            
+            // AI自动预解析
+            if (!para.hook && settings.aiAutoParse) {
+                loadingTip.style.display = 'block';
+                btnUnderstand.disabled = true;
+                
+                const aiData = await generateHookAI(para.text);
+                if (aiData) {
+                    para.anchors = aiData.anchors;
+                    para.hook = aiData;
+                    // 重新渲染高亮（仅内容变化时才重绘）
+                    let newText = escapeHtml(para.text);
+                    const sortedAnchors = [...aiData.anchors].sort((a, b) => b.length - a.length);
+                    if (settings.highlight) {
+                        sortedAnchors.slice(0, settings.highlightCount).forEach(word => {
+                            const escaped = escapeHtml(word);
+                            newText = newText.replace(new RegExp(escapeRegExp(escaped), 'g'), `<span class="anchor">${escaped}</span>`);
+                        });
+                    }
+                    paraContent.innerHTML = newText;
+                } else {
+                    // AI失败降级本地算法
+                    para.anchors = extractAnchorsLocal(para.text);
+                    statusBar.innerHTML = '⚡ AI暂不可用，已切换本地模式';
+                }
+                
+                loadingTip.style.display = 'none';
+                btnUnderstand.disabled = false;
+                saveProgress();
+            }
+            saveProgress();
+            document.querySelector('.container').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // 翻页控制
+        function goPrev() {
+            if (currentParaIndex <= 0) return;
+            currentParaIndex--;
+            isCompleted = false;
+            completeState.style.display = 'none';
+            btnUnderstand.style.display = 'block';
+            removeInlineExplain();
+            renderParagraph(currentParaIndex);
+        }
+        function advance() {
+            if (isCompleted) return;
+            const next = currentParaIndex + 1;
+            removeInlineExplain();
+            if (next < paragraphs.length) {
+                currentParaIndex = next;
+                renderParagraph(currentParaIndex);
+            } else {
+                renderParagraph(next);
+            }
+        }
+        // 继续按钮逻辑
+        function handleUnderstand() {
+            if (isCompleted || btnUnderstand.disabled) return;
+            advance();
+        }
+
+        btnUnderstand.addEventListener('click', handleUnderstand);
+        btnPrev.addEventListener('click', goPrev);
+        // ========== 加载文本 ==========
+        function loadText(text, name) {
+            isCompleted = false;
+            completeState.style.display = 'none';
+            const raw = splitIntoParagraphs(text);
+            if (raw.length === 0) { alert('请粘贴至少20字以上的内容'); return; }
+            
+            // 初始化段落，锚点本地预生成
+            paragraphs = raw.map((p, idx) => ({
+                id: idx,
+                text: p.trim(),
+                anchors: extractAnchorsLocal(p.trim()),
+                hook: null
+            }));
+            
+            bookTitle.textContent = name || '当前阅读';
+            currentParaIndex = 0;
+            isCompleted = false;
+            readStartTime = Date.now();
+            inputArea.classList.add('hidden');
+            readerArea.classList.remove('hidden');
+            renderParagraph(0, false);
+            statusBar.innerHTML = `📖 已加载 ${paragraphs.length} 段`;
+        }
+        // ========== 恢复进度 ==========
+        function restoreProgress() {
+            const data = loadProgress();
+            if (!data) return false;
+            paragraphs = data.paragraphs.map((p, idx) => ({
+                id: idx,
+                text: p.text,
+                anchors: p.anchors || [],
+                hook: p.hook || null
+            }));
+            currentParaIndex = data.currentParaIndex || 0;
+            isCompleted = data.isCompleted || false;
+            readStartTime = Date.now();
+            
+            bookTitle.textContent = '上次阅读';
+            inputArea.classList.add('hidden');
+            readerArea.classList.remove('hidden');
+            if (isCompleted || currentParaIndex >= paragraphs.length) {
+                isCompleted = true;
+                paraContent.innerHTML = '<p style="text-align:center;color:#b0a8a0;padding:60px 0;line-height:2;">已读完所有段落<br><span style="font-size:13px;">按空格重读 · 长按退出沉浸 · 按 R 键重来</span></p>';
+                progressDisplay.textContent = '✅ 完成';
+                progressBar.style.width = '100%';
+                btnUnderstand.style.display = 'none';
+                completeState.style.display = 'block';
+                completeMsg.textContent = '🎉 上次已读完';
+                statusBar.innerHTML = '⏰ 恢复进度：已完成';
+            } else {
+                renderParagraph(currentParaIndex, false);
+                statusBar.innerHTML = `⏰ 恢复进度：第 ${currentParaIndex + 1} / ${paragraphs.length} 段`;
+            }
+            return true;
+        }
+        // ========== 兑换功能 ==========
+        async function handleRedeem() {
+            const codeInput = document.getElementById('redeemCode');
+            const btn = document.getElementById('btnRedeem');
+            const code = codeInput.value.trim().toUpperCase();
+            if (!code) { alert('请输入兑换码'); return; }
+            
+            btn.disabled = true;
+            btn.textContent = '兑换中...';
+            try {
+                const res = await fetch(ADMIN_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=redeem&code=${encodeURIComponent(code)}`
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    localStorage.setItem(VIP_TOKEN_KEY, data.data.vip_token);
+                    alert(`兑换成功！已开通${data.data.days}天会员`);
+                    document.getElementById('vipOverlay').classList.remove('active');
+                    codeInput.value = '';
+                    checkVipStatus();
+                } else {
+                    alert(data.msg || '兑换失败');
+                }
+            } catch (err) {
+                alert('网络错误，请稍后再试');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '兑换';
+            }
+        }
+        function checkVipStatus() {
+            const token = localStorage.getItem(VIP_TOKEN_KEY);
+            isVip = !!token;
+        }
+
+        // ========== 事件绑定 ==========
+        btnStart.addEventListener('click', function() {
+            const text = textInput.value.trim();
+            if (checkIllegalText(text)) { alert('文本包含违规内容，禁止解析'); return; }
+            if (text.length > 20) {
+                clearProgress();
+                loadText(text, '粘贴内容');
+            } else {
+                alert('请粘贴至少20字以上的内容');
+            }
+        });
+        textInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) btnStart.click();
+        });
+        btnReset.addEventListener('click', function() {
+            if (paragraphs.length) {
+                currentParaIndex = 0;
+                isCompleted = false;
+                completeState.style.display = 'none';
+                btnUnderstand.style.display = 'block';
+                readStartTime = Date.now();
+                removeInlineExplain();
+                renderParagraph(0);
+                statusBar.innerHTML = '↺ 已重置到开头';
+            }
+        });
+        btnBack.addEventListener('click', function() {
+            readerArea.classList.add('hidden');
+            inputArea.classList.remove('hidden');
+            textInput.focus();
+        });
+        btnClearProgress.addEventListener('click', function() {
+            if (confirm('清除所有阅读进度？')) {
+                clearProgress();
+                statusBar.innerHTML = '🗑 进度已清除';
+            }
+        });
+        // 设置面板
+        document.getElementById('settingsBtn').addEventListener('click', function() {
+            document.getElementById('settingsOverlay').classList.add('active');
+        });
+        document.getElementById('btnCloseSettings').addEventListener('click', function() {
+            document.getElementById('settingsOverlay').classList.remove('active');
+            saveSettings();
+            if (!readerArea.classList.contains('hidden')) renderParagraph(currentParaIndex, false);
+        });
+        document.getElementById('settingsOverlay').addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.classList.remove('active');
+                saveSettings();
+                if (!readerArea.classList.contains('hidden')) renderParagraph(currentParaIndex, false);
+            }
+        });
+        // 设置开关事件
+        document.getElementById('switchHighlight').addEventListener('click', function() {
+            settings.highlight = !settings.highlight;
+            this.classList.toggle('on', settings.highlight);
+        });
+        document.getElementById('switchImmersive').addEventListener('click', function() {
+            settings.immersive = !settings.immersive;
+            this.classList.toggle('on', settings.immersive);
+        });
+        document.getElementById('switchAnimation').addEventListener('click', function() {
+            settings.animation = !settings.animation;
+            this.classList.toggle('on', settings.animation);
+        });
+        document.getElementById('switchAiAuto').addEventListener('click', function() {
+            settings.aiAutoParse = !settings.aiAutoParse;
+            this.classList.toggle('on', settings.aiAutoParse);
+        });
+        document.getElementById('highlightCount').addEventListener('change', function() {
+            settings.highlightCount = parseInt(this.value);
+        });
+        document.getElementById('fontSize').addEventListener('change', function() {
+            settings.fontSize = this.value;
+        });
+
+        // ========== 全局快捷键 ==========
+        document.addEventListener('keydown', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            // 空格 = 继续
+            if (e.key === ' ' || e.key === 'Space') {
+                e.preventDefault();
+                if (settingsOverlay.classList.contains('active')) return;
+                if (readerArea.classList.contains('hidden')) return;
+                handleUnderstand();
+            }
+            // 左右箭头翻段
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                if (!readerArea.classList.contains('hidden')) goPrev();
+            }
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                if (!readerArea.classList.contains('hidden')) handleUnderstand();
+            }
+            // R键重读
+            if (e.key === 'r' || e.key === 'R') {
+                if (!readerArea.classList.contains('hidden')) btnReset.click();
+            }
+            // I键切换沉浸
+            if (e.key === 'i' || e.key === 'I') {
+                settings.immersive = !settings.immersive;
+                syncSettingsUI();
+                saveSettings();
+            }
+        });
+
+// 沉浸模式：长按退出（正文区域不触发，避免和选字冲突）
+let longPressTimer = null;
+document.body.addEventListener('touchstart', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!settings.immersive) return;
+    // 正文区域长按默认是选文字，不触发退出
+    if (paraContent.contains(e.target)) return;
+    longPressTimer = setTimeout(() => {
+        settings.immersive = false;
+        syncSettingsUI();
+        saveSettings();
+    }, 1200); // 阈值拉长到1.2秒，进一步减少误触
+});
+document.body.addEventListener('touchend', function() {
+    clearTimeout(longPressTimer);
+});
+document.body.addEventListener('touchmove', function() {
+    clearTimeout(longPressTimer);
+});
+
+        
+        // PC端双击保留
+        document.body.addEventListener('dblclick', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (settings.immersive) {
+                settings.immersive = false;
+                syncSettingsUI();
+                saveSettings();
+            }
+        });
+
+        // ========== 设置管理 ==========
+        const defaultSettings = {
+            highlight: true,
+            highlightCount: 1,
+            aiAutoParse: false,
+            immersive: false,
+            animation: true,
+            fontSize: '17px'
+        };
+        let settings = { ...defaultSettings };
+        function loadSettings() {
+            try {
+                const raw = localStorage.getItem(SETTINGS_KEY);
+                if (raw) settings = { ...defaultSettings, ...JSON.parse(raw) };
+            } catch (e) {}
+            applySettings();
+            syncSettingsUI();
+        }
+        function saveSettings() {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+            applySettings();
+        }
+        function applySettings() {
+            document.body.classList.toggle('immersive', settings.immersive);
+            document.body.classList.toggle('no-animation', !settings.animation);
+            paraContent.style.fontSize = settings.fontSize;
+        }
+        function syncSettingsUI() {
+            document.getElementById('switchHighlight').classList.toggle('on', settings.highlight);
+            document.getElementById('highlightCount').value = settings.highlightCount;
+            document.getElementById('switchImmersive').classList.toggle('on', settings.immersive);
+            document.getElementById('switchAnimation').classList.toggle('on', settings.animation);
+            document.getElementById('fontSize').value = settings.fontSize;
+            document.getElementById('switchAiAuto').classList.toggle('on', settings.aiAutoParse);
+        }
+
+        // ========== 启动 ==========
+        checkVipStatus();
+        loadSettings();
+        const restored = restoreProgress();
+        if (!restored) {
+            const demo = `伟大的哲学家威廉·詹姆斯曾经说过："只有与生命直接相关的科学才是真正的科学。"也就是说，在与生命直接相关的科学中，理论与实践几乎是分不开的。生命科学创建在生命的律动之上，正因如此，它又是一门研究生活的科学。这一点尤其适用于个体心理学。
+个体心理学把个体生命视为整体，而个体的每一个反应、每一个动作、每一次冲动都是其生活态度的具体体现。这样一门科学势必是以实践为导向的，人们可以借助有关知识来修正乃至改变自己的生活态度。
+个体心理学是在努力了解神秘的生命创造力这一过程中逐渐发展起来的。正是有了这种神秘的力量，人们才会不断发展、不断完善、开拓进取、积极向上，甚至可以做到"失之东隅，收之桑榆"。`;
+            textInput.value = demo;
+            statusBar.innerHTML = '💾 逐段阅读 · 自动保存进度';
+        }
+    })();
+    </script>
+</body>
+</html>
