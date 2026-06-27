@@ -37,9 +37,9 @@
 
 网站根目录
 └── modu/
-    ├── index.html      #### 主阅读器页面
-    ├── modu_ai.php     #### AI接口核心文件
-    └── admin.php       #### 管理后台
+    ├── index.html      主阅读器页面
+    ├── modu_ai.php     AI接口核心文件
+    └── admin.php       管理后台
 
 #### 系统自动生成
 ├── modu_data/          
