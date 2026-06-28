@@ -29,8 +29,9 @@
    ```ini
    env[DEEPSEEK_KEY] = 你的DeepSeek Key
    env[ZHIPU_KEY] = 你的智谱Key
-（宝塔面板：软件商店 → PHP设置 → FPM配置文件[www]末尾添加后重启PHP）
-
+   clear_env = no
+  （宝塔面板：软件商店 → PHP设置 → FPM配置文件[www]末尾添加后重启PHP）
+   ```
 5. 访问  你的域名/modu/  即可开始使用
 
 ### 目录结构
