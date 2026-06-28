@@ -27,7 +27,7 @@
 - 首次登录密码在 `modu_data/install_password.txt` 中，登录后请立即修改
 - 在PHP环境变量中配置你的API密钥：
   - 宝塔面板：软件商店 → PHP设置
-  - FPM配置文件[www]末尾添加后重启PHP）
+  - FPM配置文件[www]末尾添加后重启PHP
    ```ini
    env[DEEPSEEK_KEY] = 你的DeepSeek Key
    env[ZHIPU_KEY] = 你的智谱Key
