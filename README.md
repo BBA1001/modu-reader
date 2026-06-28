@@ -30,7 +30,7 @@
    ```ini
    env[DEEPSEEK_KEY] = 你的DeepSeek Key
    env[ZHIPU_KEY] = 你的智谱Key
-   clear_env = no` 
+   clear_env = no 
 - 访问  你的域名/modu/  即可开始使用
 
 ### 目录结构
